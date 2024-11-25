@@ -1,124 +1,121 @@
+//Libs to work with xml files:
 import javax.xml.parsers.*;
 import javax.xml.transform.*;
 import javax.xml.transform.dom.*;
 import javax.xml.transform.stream.*;
 
+//to interact with nodes(tags) in xml files:
 import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 
 import java.util.*;
 import java.io.*;
-import java.util.stream.*;
-
-//Create class where will be creating a map that user will choose and
-//map will be accessible for any method
 
 public class FilterObjects {
-    private static void filterObjects(List<String> objName) {
+    private final ArrayList<String> objects;
+    private final Document document;
+    private final Document resultMap;
+    private int objsDeleted;
+
+    public FilterObjects(String chosenMapName, ArrayList<String> objects) throws ParserConfigurationException, IOException, SAXException {
+        this.objects = objects;
+
+        File chosenMap = new File("RP\\src\\maps\\" + chosenMapName);
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder docBuilder = factory.newDocumentBuilder();
+        this.document = docBuilder.parse(chosenMap);
+        this.document.getDocumentElement().normalize();
+        this.resultMap = docBuilder.newDocument();
+    }
+
+    //Getting ids of symbols to delete
+    private void filterObjects() {
         ArrayList<Integer> result = new ArrayList<>();
 
-        try {
-            // Loading the .omap file from the maps folder
-            File inputFile = new File("RP\\src\\maps\\center_map.omap");
+        // Getting all symbols from xml file
+        NodeList objects = this.document.getElementsByTagName("symbol");
 
-            // XML parser
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(inputFile);
-            doc.getDocumentElement().normalize();
+        // Filtering objects
+        for(String name: this.objects) {
+            for(int i = 0; i < objects.getLength(); i++) {
+                Node currentTag = objects.item(i);
 
-            // Getting all symbols from xml file
-            NodeList objects = doc.getElementsByTagName("symbol");
+                if(currentTag.getNodeType() == Node.ELEMENT_NODE) {
+                    Element el = (Element) currentTag;
+                    String nameOfCurrEl = el.getAttribute("name");
 
-            List<String> matchingElements = new ArrayList<>();
-
-            // Filtering objects
-            for(String name: objName) {
-                for(int i = 0; i < objects.getLength(); i++) {
-                    Node node = objects.item(i);
-
-                    if(node.getNodeType() == Node.ELEMENT_NODE) {
-                        Element el = (Element) node;
-                        String res = el.getAttribute("name");
-
-                        if(name.equalsIgnoreCase(res) && !res.isEmpty()) {
-                            result.add(Integer.parseInt(el.getAttribute("id")));
-                        }
+                    if(name.equalsIgnoreCase(nameOfCurrEl) && !nameOfCurrEl.isEmpty()) {
+                        result.add(Integer.parseInt(el.getAttribute("id")));
                     }
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         filter(result);
     }
 
-    private static void filter(ArrayList<Integer> ids) {
-        try {
-            File inputFile = new File("RP\\src\\maps\\center_map.omap");
+    //Depending on symbol id filter objects which have attribute symbol equal to id in symbol
+    private void filter(ArrayList<Integer> ids) {
+        // Get all <object> elements
+        NodeList objectsToFilter = this.document.getElementsByTagName("object");
 
-            // Enable namespace-aware parsing
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setNamespaceAware(true);
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(inputFile);
-            doc.getDocumentElement().normalize();
+        Element root = this.document.getDocumentElement();
+        Element newRoot = (Element) this.resultMap.importNode(root, false);
+        this.resultMap.appendChild(newRoot);
 
-            // Retrieve the namespace URI from the root element
-            String namespaceURI = doc.getDocumentElement().getNamespaceURI();
+        for(int id : ids) {
+            for (int i = 0; i < objectsToFilter.getLength(); i++) {
+                Node currentTag = objectsToFilter.item(i);
 
-            // Fetch all <object> elements
-            NodeList objectsToFilter = doc.getElementsByTagNameNS(namespaceURI, "object");
+                if (currentTag.getNodeType() == Node.ELEMENT_NODE) {
+                    Element el = (Element) currentTag;
+                    String symbol = el.getAttribute("symbol");
 
-            // Debugging: print the number of <object> elements
-            System.out.println("Number of <object> elements: " + objectsToFilter.getLength());
-
-            ArrayList<String> matchingObjects = new ArrayList<>();
-
-            for(int id : ids) {
-                for (int i = 0; i < objectsToFilter.getLength(); i++) {
-                    Node node = objectsToFilter.item(i);
-
-
-                    if (node.getNodeType() == Node.ELEMENT_NODE) {
-                        Element el = (Element) node;
-
-                        String symbol = el.getAttribute("symbol");
-                        if (!symbol.isEmpty() && id == Integer.parseInt(el.getAttribute("symbol"))) {
-                            String string = toString(el);
-                            matchingObjects.add(string);
-                        }
+                    //Skip, if the current element is the element we want to filter
+                    if (!symbol.isEmpty() && id == Integer.parseInt(el.getAttribute("symbol"))) {
+                        this.objsDeleted++;
+                        continue;
                     }
-                }
 
-                for (String el : matchingObjects) {
-                    System.out.println(el);
+                    //All other elements we are adding to the final map
+                    newRoot.appendChild(this.resultMap.importNode(el, true));
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
+
+        saveDoc(this.resultMap, "custom_map.omap");
     }
 
-    private static String toString(Element element) {
+    //Method to save new map in the directory maps:
+    private void saveDoc(Document document, String fileName) {
         try {
             TransformerFactory transformerFactory = TransformerFactory.newInstance();
             Transformer transformer = transformerFactory.newTransformer();
-            DOMSource source = new DOMSource(element);
-            StringWriter writer = new StringWriter();
-            StreamResult result = new StreamResult(writer);
+
+            //Fixing code writing (without them all the xml code will be in one line)
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+
+            DOMSource source = new DOMSource(document);
+            StreamResult result = new StreamResult(new File("RP\\src\\maps\\", fileName));
             transformer.transform(source, result);
-            return writer.toString();
         } catch (Exception e) {
             e.printStackTrace();
-            return "";
         }
     }
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        List<String> objectsToFilter = new ArrayList<>();
+        ArrayList<String> objectsToFilter = new ArrayList<>();
+
+        File[] files = new File("RP\\src\\maps").listFiles();
+
+        System.out.println("Select map to filter from the following list: ");
+
+        for(File f : files) {
+            System.out.println(f.getName());
+        }
+
+        String mapName = sc.nextLine();
 
         while(true) {
             System.out.println("Enter the object name to filter from the name (or 'exit' to quit):");
@@ -129,6 +126,12 @@ public class FilterObjects {
             objectsToFilter.add(objName);
         }
 
-        filterObjects(objectsToFilter);
+        try {
+            FilterObjects filterMap = new FilterObjects(mapName, objectsToFilter);
+
+            filterMap.filterObjects();
+
+            System.out.println("You are done, amount of objects deleted from the map: " + filterMap.objsDeleted);
+        } catch (Exception ignored) {}
     }
 }
