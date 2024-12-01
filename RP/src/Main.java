@@ -5,6 +5,7 @@ public class Main {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
         ArrayList<String> objectsToFilter = new ArrayList<>();
+        List<String> mostFilteredElements = List.of("High Tower", "Small Tower", "Building", "Grave", "Firing Range");
 
         File[] maps = new File("RP\\src\\maps").listFiles();
 
@@ -15,6 +16,9 @@ public class Main {
         }
 
         int mapIndex = sc.nextInt();
+
+        System.out.println("Elements that were filtered the most: ");
+        System.out.println(mostFilteredElements);
 
         while(true) {
             System.out.println("Enter the object name to filter from the map (or 'exit' to quit):");
