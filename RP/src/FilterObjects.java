@@ -57,13 +57,13 @@ public class FilterObjects {
     private void filter(List<Integer> idsToFilter, NodeList symbols) {
         NodeList objects = this.document.getElementsByTagName("objects").item(0).getChildNodes();
 
-        // Create root element for the result map
+        // Root element for the result
         Element root = this.resultMap.createElement("map");
         root.setAttribute("xmlns", "http://openorienteering.org/apps/mapper/xml/v2");
         root.setAttribute("version", "9");
         this.resultMap.appendChild(root);
 
-        // Add defaults tag in the beginning
+        // Add default tags in the beginning
         appendGeoreferencingAndColors(root);
         appendBarrierAndSymbols(root, symbols);
 
@@ -104,7 +104,6 @@ public class FilterObjects {
         parts.appendChild(part);
         root.appendChild(parts);
 
-        // Add templates and view elements
         appendTemplatesAndView(root);
 
         saveDoc(this.resultMap, "custom_map.omap");
@@ -192,7 +191,7 @@ public class FilterObjects {
         symbolsWrapper.setAttribute("count", String.valueOf(symbols.getLength()));
         symbolsWrapper.setAttribute("id", "ISMTBOM");
 
-        // Copy all <symbol> elements
+        //Copy all <symbol> elements
         for (int i = 0; i < symbols.getLength(); i++) {
             Node symbol = symbols.item(i);
             symbolsWrapper.appendChild(this.resultMap.importNode(symbol, true));
@@ -203,7 +202,7 @@ public class FilterObjects {
     }
 
     private void appendTemplatesAndView(Element root) {
-        // Templates
+        //Templates
         Element templates = this.resultMap.createElement("templates");
         templates.setAttribute("count", "1");
         templates.setAttribute("first_front_template", "1");
@@ -217,15 +216,12 @@ public class FilterObjects {
         template.setAttribute("georef", "true");
         templates.appendChild(template);
 
-        Element defaults = this.resultMap.createElement("defaults");
-        defaults.setAttribute("use_meters_per_pixel", "true");
-        defaults.setAttribute("meters_per_pixel", "0");
-        defaults.setAttribute("dpi", "0");
-        defaults.setAttribute("scale", "0");
-        templates.appendChild(defaults);
+        NodeList defaultsTag = this.document.getElementsByTagName("defaults");
+        Node defaultsNode = defaultsTag.item(0);
+        templates.appendChild(this.resultMap.importNode(defaultsNode, true));
         root.appendChild(templates);
 
-        // View
+        //View part
         Element view = this.resultMap.createElement("view");
 
         Element grid = this.resultMap.createElement("grid");
