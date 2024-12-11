@@ -146,7 +146,7 @@ The purple line will extend a bit into the finish symbol. This is a shortcoming 
 <object type="1" symbol="47"><coords count="10">-14954 7559;-21170 -1575;-27322 -8552;-33791 -15909;-35314 -19080;-35250 -22125;-34426 -26121;-32523 -32273;-29161 -41153;-28146 -45593 16;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
 <object type="1" symbol="48"><coords count="7">-32910 -30498;-28873 -31440;-26788 -32046;-25734 -35678;-24389 -38862;-26497 -39782;-29053 -40612 16;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
 <object type="1" symbol="48"><coords count="23">-24311 -38905;-21647 -37922;-18096 -36273;-16351 -35798;-14893 -36305;-14290 -36654;-14702 -34370;-14956 -33165;-15527 -32182;-16415 -29740;-17208 -27933;-17842 -26506;-19300 -23335;-19744 -21559;-19332 -18673;-18127 -16167;-15241 -10680;-14163 -8365;-13434 -7350;-10485 -4242;-7218 -1293;-3191 3052;-1573 5335 16;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
-<object type="1" symbol="48"><coords count="11">-20919 -1705;-17050 -4940;-14101 -8587;-12325 -10300;-10707 -10966;-9471 -11061;-8392 -12012;-7156 -14232;-5411 -16262;-2898 -18441;-83 -20884 16;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
+<object type="1" symbol="48"><coords count="11">-20729 -1578;-16860 -4813;-13911 -8460;-12135 -10173;-10517 -10839;-9281 -10934;-8202 -11885;-6966 -14105;-5221 -16135;-2708 -18314;107 -20757 16;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
 <object type="1" symbol="48"><coords count="12">-4872 7491;-1130 4288;3278 1085;6703 -1611;9399 -3926;6323 -8239;5149 -10300;3849 -13059;2200 -16040;709 -19053;-84 -20861;-940 -20163 16;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
 <object type="0" symbol="98"><coords count="1">-38053 -12915;</coords></object>
 <object type="1" symbol="25"><coords count="11">32915 -32396;31655 -32087;27968 -28670;27333 -26957;27873 -25443;28761 -23667;31496 -23048;34279 -24349;36261 -26220;34881 -29510;32915 -32396 18;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
@@ -208,7 +208,7 @@ The purple line will extend a bit into the finish symbol. This is a shortcoming 
 </templates>
 <view>
 <grid color="#646464" display="0" alignment="0" additional_rotation="0" unit="1" h_spacing="500" v_spacing="500" h_offset="0" v_offset="0" snapping_enabled="true"/>
-<map_view zoom="1.41421" position_x="-29310" position_y="-27296"><map opacity="1" visible="true"/><templates count="2"><ref template="1" opacity="1"/><ref template="0" opacity="1"/></templates></map_view>
+<map_view zoom="2.82842" position_x="-28297" position_y="-10525"><map opacity="1" visible="true"/><templates count="2"><ref template="1" opacity="1"/><ref template="0" opacity="1"/></templates></map_view>
 </view>
 </barrier>
 <barrier version="6" required="0.6.0">
@@ -326,6 +326,7 @@ The purple line will extend a bit into the finish symbol. This is a shortcoming 
 <step type="0"><affected_objects part="0"><ref object="17"/></affected_objects><contained_objects count="1"><object type="1" symbol="40"><coords count="5">27156 -21789;30126 -15800;38491 -15396;38401 -21675;27156 -21789 18;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object></contained_objects></step>
 <step type="0"><affected_objects part="0"><ref object="17"/></affected_objects><contained_objects count="1"><object type="1" symbol="40"><coords count="5">27156 -21789;30126 -15800;38446 -14813;38401 -21675;27156 -21789 18;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object></contained_objects></step>
 <step type="0"><affected_objects part="0"><ref object="17"/></affected_objects><contained_objects count="1"><object type="1" symbol="40"><coords count="5">27156 -21789;29588 -15038;38446 -14813;38401 -21675;27156 -21789 18;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object></contained_objects></step>
+<step type="0"><affected_objects part="0"><ref object="3"/></affected_objects><contained_objects count="1"><object type="1" symbol="48"><coords count="11">-20919 -1705;-17050 -4940;-14101 -8587;-12325 -10300;-10707 -10966;-9471 -11061;-8392 -12012;-7156 -14232;-5411 -16262;-2898 -18441;-83 -20884 16;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object></contained_objects></step>
 </undo>
 <redo>
 </redo>

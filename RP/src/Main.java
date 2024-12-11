@@ -5,7 +5,8 @@ public class Main {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
         ArrayList<String> objectsToFilter = new ArrayList<>();
-        List<String> mostFilteredElements = List.of("High Tower", "Small Tower", "Building", "Grave", "Firing Range");
+        List<String> mostFilteredElementsForCenter = List.of("High Tower", "Small Tower", "Building", "Grave", "Firing Range", "Railway");
+        List<String> mostFilteredElementsForVillage = List.of("Forest: reduced visibility", "Building", "Pond", "Major power line");
 
         File[] maps = new File("RP\\src\\maps").listFiles();
 
@@ -17,16 +18,19 @@ public class Main {
 
         int mapIndex = sc.nextInt();
 
-        System.out.println("Elements that were filtered the most: ");
-        System.out.println(mostFilteredElements);
+        System.out.println("Elements that were filtered the most in the " + maps[mapIndex - 1].getName());
+
+        if (mapIndex == 1) System.out.println(mostFilteredElementsForCenter);
+        else System.out.println(mostFilteredElementsForVillage);
+
 
         while(true) {
             System.out.println("Enter the object name to filter from the map (or 'exit' to quit):");
             String objName = sc.nextLine();
 
-            if(objName.equalsIgnoreCase("exit")) break;
+            if(objName.trim().equalsIgnoreCase("exit")) break;
 
-            objectsToFilter.add(objName);
+            objectsToFilter.add(objName.trim());
         }
 
         try {
