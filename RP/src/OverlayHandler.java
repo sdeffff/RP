@@ -1,6 +1,7 @@
 import org.w3c.dom.*;
 import java.awt.geom.Area;
 import java.awt.geom.Path2D;
+import java.text.DecimalFormat;
 import java.util.*;
 
 public class OverlayHandler {
@@ -14,14 +15,14 @@ public class OverlayHandler {
         public final Element object2;
         public final int symbolId1;
         public final int symbolId2;
-        public final double overlapArea;
+        public final double overlapSize;
 
-        public OverlapPair(Element object1, Element object2, int symbolId1, int symbolId2, double overlapArea) {
+        public OverlapPair(Element object1, Element object2, int symbolId1, int symbolId2, double overlapSize) {
             this.object1 = object1;
             this.object2 = object2;
             this.symbolId1 = symbolId1;
             this.symbolId2 = symbolId2;
-            this.overlapArea = overlapArea;
+            this.overlapSize = overlapSize;
         }
 
         @Override
@@ -29,7 +30,7 @@ public class OverlayHandler {
             return "Overlap between object #" + object1.getAttribute("id") +
                     " (symbol " + symbolId1 + ") and object #" +
                     object2.getAttribute("id") + " (symbol " + symbolId2 +
-                    "), overlap area: " + String.format("%.2f", overlapArea);
+                    "), overlap area: ";
         }
     }
 
@@ -50,7 +51,18 @@ public class OverlayHandler {
             Node node = symbols.item(i);
             if (node.getNodeType() == Node.ELEMENT_NODE) {
                 Element symbol = (Element) node;
-                int id = Integer.parseInt(symbol.getAttribute("id"));
+                String idAttr = symbol.getAttribute("id");
+
+                if (idAttr == null || idAttr.trim().isEmpty()) {
+                    continue;
+                }
+
+                int id;
+
+                try {
+                    id = Integer.parseInt(idAttr);
+                } catch (NumberFormatException e) {continue;}
+
                 String name = symbol.getAttribute("name").toLowerCase();
 
                 int priority = calculatePriority(symbol, name);
@@ -61,48 +73,52 @@ public class OverlayHandler {
 
     private int calculatePriority(Element symbol, String name) {
         int priority = 50;
+        name = name.toLowerCase();
 
         if (name.contains("building") || name.contains("tower")) {
             priority = 90;
-        }
-
-        else if (name.contains("water") || name.contains("lake") || name.contains("pond")) {
+        } else if (name.contains("water") || name.contains("lake") || name.contains("pond")) {
             priority = 80;
-        }
-
-        else if (name.contains("path") || name.contains("road") || name.contains("track")) {
+        } else if (name.contains("path") || name.contains("road") || name.contains("track") || name.contains("area")) {
             priority = 85;
-        }
-
-        else if (name.contains("forest") || name.contains("vegetation")) {
+        } else if (name.contains("forest") || name.contains("vegetation") || name.equals("vineyard")) {
             priority = 30;
-        }
-
-        else if (name.contains("open") || name.contains("field")) {
+        } else if (name.contains("open") || name.contains("field")) {
             priority = 20;
+        } else if (name.contains("contour") || name.contains("slope")) {
+            priority = 70;
+        } else if (name.contains("index")) {
+            priority = 75;
         }
 
-        // Check for point, line or area type
-        NodeList typeNodes = symbol.getElementsByTagName("point");
-        if (typeNodes.getLength() > 0) {
+        if (symbol.getElementsByTagName("point_symbol").getLength() > 0 ||
+                symbol.getElementsByTagName("point").getLength() > 0) {
             priority += 5;
         }
 
-        typeNodes = symbol.getElementsByTagName("line");
-        if (typeNodes.getLength() > 0) {
+        if (symbol.getElementsByTagName("line_symbol").getLength() > 0 ||
+                symbol.getElementsByTagName("line").getLength() > 0) {
             priority += 3;
         }
 
+        priority = Math.max(0, Math.min(priority, 100));
+
         return priority;
     }
+
 
     private void loadObjects() {
         NodeList objects = document.getElementsByTagName("object");
         for (int i = 0; i < objects.getLength(); i++) {
             Element object = (Element) objects.item(i);
             String id = object.getAttribute("id");
-            if (!id.isEmpty()) {
-                objectsById.put(Integer.parseInt(id), object);
+            if (id != null && !id.trim().isEmpty()) {
+                try {
+                    objectsById.put(Integer.parseInt(id), object);
+                } catch (NumberFormatException e) {
+                    // Skip objects with non-integer IDs
+                    continue;
+                }
             }
         }
     }
@@ -111,16 +127,10 @@ public class OverlayHandler {
         NodeList objects = document.getElementsByTagName("object");
         int objectCount = objects.getLength();
 
-        System.out.println("Scanning " + objectCount + " objects for overlaps...");
-
-        // For each pair of objects, check if they overlap
         for (int i = 0; i < objectCount; i++) {
             Element object1 = (Element) objects.item(i);
             String symbolId1 = object1.getAttribute("symbol");
 
-            if (symbolId1.isEmpty()) continue;
-
-            // Extract geometry of first object
             Path2D path1 = extractGeometry(object1);
             if (path1 == null) continue;
 
@@ -130,28 +140,29 @@ public class OverlayHandler {
                 Element object2 = (Element) objects.item(j);
                 String symbolId2 = object2.getAttribute("symbol");
 
-                if (symbolId2.isEmpty()) continue;
-
-                // Extract geometry of second object
                 Path2D path2 = extractGeometry(object2);
                 if (path2 == null) continue;
 
-                // Check for overlap
                 Area area2 = new Area(path2);
                 Area overlapArea = new Area(area1);
                 overlapArea.intersect(area2);
 
                 if (!overlapArea.isEmpty()) {
-                    // Calculate overlap area
-                    double overlapSize = getAreaSize(overlapArea);
-                    if (overlapSize > 0.01) { // Skip tiny overlaps
-                        overlaps.add(new OverlapPair(
-                                object1,
-                                object2,
-                                Integer.parseInt(symbolId1),
-                                Integer.parseInt(symbolId2),
-                                overlapSize
-                        ));
+                    double overlapSize = (getAreaSize(overlapArea));
+
+                    if(overlapSize > 100 && !object1.getAttribute("symbol").equals(object2.getAttribute("symbol"))) {
+                        try {
+                            overlaps.add(new OverlapPair(
+                                    object1,
+                                    object2,
+                                    Integer.parseInt(symbolId1),
+                                    Integer.parseInt(symbolId2),
+                                    overlapSize
+                            ));
+                        } catch (NumberFormatException e) {
+                            // Skip this overlap if there's an issue parsing the symbol IDs
+                            continue;
+                        }
                     }
                 }
             }
@@ -161,44 +172,36 @@ public class OverlayHandler {
     }
 
     private Path2D extractGeometry(Element object) {
+        NodeList coordsList = object.getElementsByTagName("coords");
+        if (coordsList.getLength() == 0) return null;
+
+        Element coordsElement = (Element) coordsList.item(0);
+        String coordsText = coordsElement.getTextContent().trim();
+        String[] pointStrings = coordsText.split(";");
+
         Path2D path = new Path2D.Double();
-        boolean hasGeometry = false;
+        boolean started = false;
 
-        // Handle area objects (polygons)
-        NodeList coords = object.getElementsByTagName("coord");
-        if (coords.getLength() > 0) {
-            for (int i = 0; i < coords.getLength(); i++) {
-                Element coord = (Element) coords.item(i);
-                double x = Double.parseDouble(coord.getAttribute("x"));
-                double y = Double.parseDouble(coord.getAttribute("y"));
+        for (String pointStr : pointStrings) {
+            String[] parts = pointStr.trim().split("\\s+");
 
-                if (i == 0) {
+            try {
+                double x = Double.parseDouble(parts[0]);
+                double y = Double.parseDouble(parts[1]);
+
+                if (!started) {
                     path.moveTo(x, y);
+                    started = true;
                 } else {
                     path.lineTo(x, y);
                 }
-                hasGeometry = true;
-            }
-            path.closePath();
-        }
-
-        NodeList linePoints = object.getElementsByTagName("point");
-        if (linePoints.getLength() > 0 && !hasGeometry) {
-            for (int i = 0; i < linePoints.getLength(); i++) {
-                Element point = (Element) linePoints.item(i);
-                double x = Double.parseDouble(point.getAttribute("x"));
-                double y = Double.parseDouble(point.getAttribute("y"));
-
-                if (i == 0) {
-                    path.moveTo(x, y);
-                } else {
-                    path.lineTo(x, y);
-                }
-                hasGeometry = true;
+            } catch (NumberFormatException e) {
+                System.err.println("Skipping invalid coordinate: " + pointStr);
             }
         }
 
-        return hasGeometry ? path : null;
+        if (started) path.closePath();
+        return started ? path : null;
     }
 
     private double getAreaSize(Area area) {
@@ -220,33 +223,35 @@ public class OverlayHandler {
         }
     }
 
+    private boolean checkSmallObject(Element object) {
+        if((Integer.parseInt(object.getAttribute("symbol")) > 43 &&
+                Integer.parseInt(object.getAttribute("symbol")) < 65) ||
+                (Integer.parseInt(object.getAttribute("symbol")) > 0 &&
+                        Integer.parseInt(object.getAttribute("symbol")) < 19)) {
+            return true;
+        }
+
+        return false;
+    }
+
     public List<Element> getObjectsToHide() {
         Set<Element> objectsToHide = new HashSet<>();
 
         for (OverlapPair overlap : overlaps) {
+            if(overlap.object1.equals(overlap.object2) || overlap.symbolId2 == overlap.symbolId1) {
+                continue;
+            }
+
             Element lowerPriorityObject = decideVisibility(overlap);
-            objectsToHide.add(lowerPriorityObject);
+
+            if(checkSmallObject(lowerPriorityObject)) {
+                continue;
+            } else {
+                objectsToHide.add(lowerPriorityObject);
+            }
         }
 
         return new ArrayList<>(objectsToHide);
-    }
-
-    public void applyTransparencyToOverlaps(Document resultMap) {
-        for (OverlapPair overlap : overlaps) {
-            Element lowerPriorityObject = decideVisibility(overlap);
-            String id = lowerPriorityObject.getAttribute("id");
-
-            // Find this object in the result document
-            NodeList resultObjects = resultMap.getElementsByTagName("object");
-            for (int i = 0; i < resultObjects.getLength(); i++) {
-                Element obj = (Element) resultObjects.item(i);
-                if (obj.getAttribute("id").equals(id)) {
-                    // Set opacity attribute
-                    obj.setAttribute("opacity", "0.5");
-                    break;
-                }
-            }
-        }
     }
 
     public Map<String, Integer> getSymbolPriorities() {

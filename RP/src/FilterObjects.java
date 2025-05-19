@@ -1,3 +1,4 @@
+
 import javax.xml.parsers.*;
 import javax.xml.transform.*;
 import javax.xml.transform.dom.*;
@@ -10,11 +11,18 @@ import java.io.*;
 public class FilterObjects {
     private final ArrayList<String> objects;
     private final Document document;
-    private final Document resultMap;
+    private Document resultMap;
     public int objsDeleted;
+    public int overlaysHandled;
+    private boolean handleOverlays;
+    private boolean removeOverlays;
+    private OverlayHandler overlayManager;
 
-    public FilterObjects(String chosenMapName, ArrayList<String> objects) throws ParserConfigurationException, IOException, SAXException {
+    public FilterObjects(String chosenMapName, ArrayList<String> objects, boolean handleOverlays, boolean removeOverlays) throws ParserConfigurationException, IOException, SAXException {
         this.objects = objects;
+        this.handleOverlays = handleOverlays;
+        this.removeOverlays = removeOverlays;
+        this.overlaysHandled = 0;
 
         File chosenMap = new File("RP\\src\\maps\\" + chosenMapName);
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -22,12 +30,19 @@ public class FilterObjects {
         this.document = docBuilder.parse(chosenMap);
         this.document.getDocumentElement().normalize();
         this.resultMap = docBuilder.newDocument();
+
+        if (handleOverlays) {
+            this.overlayManager = new OverlayHandler(this.document);
+        }
+    }
+
+    public FilterObjects(String chosenMapName, ArrayList<String> objects) throws ParserConfigurationException, IOException, SAXException {
+        this(chosenMapName, objects, false, false);
     }
 
     public void filterObjects() {
         Map<String, Integer> symbolMap = new HashMap<>();
 
-        // Extract <symbol> elements and map names to IDs
         NodeList symbols = this.document.getElementsByTagName("symbol");
         for (int i = 0; i < symbols.getLength(); i++) {
             Node currentTag = symbols.item(i);
@@ -38,12 +53,16 @@ public class FilterObjects {
                 String id = el.getAttribute("id");
 
                 if (!name.isEmpty() && !id.isEmpty()) {
-                    symbolMap.put(name.toLowerCase(), Integer.parseInt(id));
+                    try {
+                        symbolMap.put(name.toLowerCase(), Integer.parseInt(id));
+                    } catch (NumberFormatException e) {
+                        // Skip symbols with non-integer IDs
+                        continue;
+                    }
                 }
             }
         }
 
-        // Collect ids of symbols to filter
         List<Integer> idsToFilter = new ArrayList<>();
         for (String name : this.objects) {
             if (symbolMap.containsKey(name.toLowerCase())) {
@@ -51,11 +70,32 @@ public class FilterObjects {
             }
         }
 
+        if (handleOverlays) {
+            overlayManager.identifyOverlays();
+            System.out.println("Found " + overlayManager.getOverlaps().size() + " overlapping objects");
+        }
+
         filter(idsToFilter, symbols);
+
+        if (handleOverlays) {
+            if (removeOverlays) {
+                List<Element> objectsToHide = overlayManager.getObjectsToHide();
+
+                overlaysHandled = removeOverlappingObjects(objectsToHide);
+            }
+        }
     }
 
     private void filter(List<Integer> idsToFilter, NodeList symbols) {
-        NodeList objects = this.document.getElementsByTagName("objects").item(0).getChildNodes();
+        NodeList objectNodes = this.document.getElementsByTagName("objects");
+
+        if (objectNodes.getLength() == 0) {
+            System.out.println("Warning: No 'objects' element found in the document");
+            return;
+        }
+
+        Node objectsNode = objectNodes.item(0);
+        NodeList objects = objectsNode.getChildNodes();
 
         // Root element for the result
         Element root = this.resultMap.createElement("map");
@@ -86,9 +126,19 @@ public class FilterObjects {
                 Element el = (Element) currentTag;
                 String symbolAttr = el.getAttribute("symbol");
 
-                // Skip objects with filtered symbols
-                if (!symbolAttr.isEmpty() && idsToFilter.contains(Integer.parseInt(symbolAttr))) {
-                    this.objsDeleted++;
+                // Skip objects with filtered symbols or empty symbol attributes
+                if (symbolAttr.isEmpty()) {
+                    continue;
+                }
+
+                try {
+                    int symbolId = Integer.parseInt(symbolAttr);
+                    if (idsToFilter.contains(symbolId)) {
+                        this.objsDeleted++;
+                        continue;
+                    }
+                } catch (NumberFormatException e) {
+                    // Skip objects with non-integer symbol IDs
                     continue;
                 }
 
@@ -106,15 +156,60 @@ public class FilterObjects {
 
         appendTemplatesAndView(root);
 
-        saveDoc(this.resultMap, "custom_map.omap");
+        if(!handleOverlays) saveDoc(this.resultMap, "custom_map.omap");
+    }
+
+    private int removeOverlappingObjects(List<Element> objectsToHide) {
+        int removed = 0;
+
+        Set<String> idsToHide = new HashSet<>();
+        for (Element element : objectsToHide) {
+            String id = element.getAttribute("symbol");
+            if (id != null && !id.isEmpty()) {
+                idsToHide.add(id);
+            }
+        }
+
+        NodeList allObjectsNodes = resultMap.getElementsByTagName("object");
+        List<Node> toRemove = new ArrayList<>();
+
+        for (int i = 0; i < allObjectsNodes.getLength(); i++) {
+            Element object = (Element) allObjectsNodes.item(i);
+            String id = object.getAttribute("symbol");
+
+            if (id != null && !id.isEmpty() && idsToHide.contains(id)) {
+                toRemove.add(object);
+                removed++;
+            }
+        }
+
+        for (Node node : toRemove) {
+            node.getParentNode().removeChild(node);
+        }
+
+        NodeList objectsWrapperList = resultMap.getElementsByTagName("objects");
+        if (objectsWrapperList.getLength() > 0) {
+            Element objectsWrapper = (Element) objectsWrapperList.item(0);
+            int currentCount = Integer.parseInt(objectsWrapper.getAttribute("count"));
+            objectsWrapper.setAttribute("count", String.valueOf(currentCount - removed));
+        }
+
+        // Save the updated document
+        saveDoc(resultMap, "custom_map_no_overlays.omap");
+
+        return removed;
     }
 
     private void appendGeoreferencingAndColors(Element root) {
         // Georeferencing
         NodeList georeferencingNodes = this.document.getElementsByTagName("georeferencing");
-        Node georeferencingNode = georeferencingNodes.item(0);
-        Node importedGeoreferencing = this.resultMap.importNode(georeferencingNode, true);
-        root.appendChild(importedGeoreferencing);
+        if (georeferencingNodes.getLength() > 0) {
+            Node georeferencingNode = georeferencingNodes.item(0);
+            Node importedGeoreferencing = this.resultMap.importNode(georeferencingNode, true);
+            root.appendChild(importedGeoreferencing);
+        } else {
+            System.out.println("Warning: No georeferencing element found in the document");
+        }
 
         // Colors
         Element colors = this.resultMap.createElement("colors");
@@ -217,8 +312,10 @@ public class FilterObjects {
         templates.appendChild(template);
 
         NodeList defaultsTag = this.document.getElementsByTagName("defaults");
-        Node defaultsNode = defaultsTag.item(0);
-        templates.appendChild(this.resultMap.importNode(defaultsNode, true));
+        if (defaultsTag.getLength() > 0) {
+            Node defaultsNode = defaultsTag.item(0);
+            templates.appendChild(this.resultMap.importNode(defaultsNode, true));
+        }
         root.appendChild(templates);
 
         //View part
@@ -258,6 +355,13 @@ public class FilterObjects {
         mapView.appendChild(templatesRef);
         view.appendChild(mapView);
         root.appendChild(view);
+    }
+
+    public Map<String, Integer> getSymbolPriorities() {
+        if (overlayManager != null) {
+            return overlayManager.getSymbolPriorities();
+        }
+        return new HashMap<>();
     }
 
     private void saveDoc(Document document, String fileName) {
